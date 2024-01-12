@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Thu Jun 20 2019
-
-@author: farismismar
-"""
 
 import os
 import numpy as np
@@ -15,13 +10,13 @@ import matplotlib.pyplot as plt
 #from matplotlib.ticker import MultipleLocator, FuncFormatter
 
 import pandas as pd
-import matplotlib2tikz
-
-os.chdir('/Users/farismismar/Desktop/deep/')
+import tikzplotlib # A library for converting Matplotlib figures to TikZ code.
 
 MIN_EPISODES_DEEP = 0
 MAX_EPISODES_DEEP = 2500
 
+# Takes an array of SINR values and
+# computes the corresponding data rate (capacity) for each SINR value.
 def sum_rate(sinr):
     output = []
     for s in sinr:
@@ -29,18 +24,17 @@ def sum_rate(sinr):
         c = np.log2(1 + s_linear)
         output.append(c)
 
-    return output    
+    return output
 
+# Plots complementary cumulative distribution functions (CCDFs) for provided datasets
 def plot_ccdf(T, labels, filename='ccdf'):
     fig = plt.figure(figsize=(10.24, 7.68))
-    plt.rc('text', usetex=True)
+    plt.rc('text', usetex=False)
     plt.rc('font', family='serif')
-    matplotlib.rcParams['text.usetex'] = True
+    matplotlib.rcParams['text.usetex'] = False
     matplotlib.rcParams['font.size'] = 20
-    matplotlib.rcParams['text.latex.preamble'] = [
-        r'\usepackage{amsmath}',
-        r'\usepackage{amssymb}']   
-    
+    matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{amsmath} \usepackage{amssymb}'
+
     num_bins = 10
     i = 0
     for data in T:
@@ -58,50 +52,48 @@ def plot_ccdf(T, labels, filename='ccdf'):
     plt.grid(True)
     plt.tight_layout()
     ax.set_xlabel('$\gamma$')
-    ax.set_ylabel('$1 - F_\Gamma(\gamma)$')        
+    ax.set_ylabel('$1 - F_\Gamma(\gamma)$')
     ax.legend(labels, loc="lower left")
     plt.savefig('figures/{}.pdf'.format(filename), format='pdf')
-    matplotlib2tikz.save('figures/{}.tikz'.format(filename))
-    plt.close(fig)    
-    
+    # tikzplotlib.save('figures/{}.tikz'.format(filename))
+    plt.close(fig)
+
+# Creates a primary plot with X and Y data, customizable labels, and axis limits
+# file saved as convergence.pdf
 def plot_primary(X,Y, xlabel, ylabel, ymin=0, ymax=MAX_EPISODES_DEEP, filename='plot.pdf'):
     fig = plt.figure(figsize=(10.24,7.68))
-    plt.rc('text', usetex=True)
+    plt.rc('text', usetex=False)
     plt.rc('font', family='serif')
-    matplotlib.rcParams['text.usetex'] = True
+    matplotlib.rcParams['text.usetex'] = False
     matplotlib.rcParams['font.size'] = 20
-    matplotlib.rcParams['text.latex.preamble'] = [
-        r'\usepackage{amsmath}',
-        r'\usepackage{amssymb}']
-    
+    matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{amsmath} \usepackage{amssymb}'
+
     plt.xlabel(xlabel)
-    
-    #X = np.log2(np.array(X))
-    
+
     ax = fig.gca()
-    
-    #ax.xaxis.set_major_locator(MultipleLocator(1))
-    # Format the ticklabel to be 2 raised to the power of `x`
-    #ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: int(2**x)))
-    
+
     ax.set_autoscaley_on(False)
-    
-    plot_, = ax.plot(X, Y, 'k^-')  
-    
+
+    plot_, = ax.plot(X, Y, 'k^-')
+
     ax.set_ylabel(ylabel)
     ax.set_ylim(ymin, ymax)
     plt.grid(True)
 
-    fig.tight_layout()
+    # fig.tight_layout()
     plt.savefig('figures/{}'.format(filename), format='pdf')
-    matplotlib2tikz.save('figures/{}.tikz'.format(filename))
+    # tikzplotlib.save('figures/{}.tikz'.format(filename))
 
 ##############################
 
+# Reads data from CSV files and organizes it into a DataFrame.
+# The function is used to process SINR and transmit power data.
+# for various values of M
+# also aggregates and normalizes the data
 def compute_distributions(optimal=False):
     df_final = pd.DataFrame()
     gamma_0 = 5 # dB as in the environment file.
-    
+
     for M in [4, 8, 16, 32, 64]:
         if optimal:
             df_1 = pd.read_csv('figures M={} optimal/ue_1_sinr.txt'.format(M), sep=',', header=None, index_col=False).transpose().dropna()
@@ -109,54 +101,54 @@ def compute_distributions(optimal=False):
         else:
             df_1 = pd.read_csv('figures M={}/ue_1_sinr.txt'.format(M), sep=',', header=None, index_col=False).transpose().dropna()
             df_2 = pd.read_csv('figures M={}/ue_2_sinr.txt'.format(M), sep=',', header=None, index_col=False).transpose().dropna()
-        
+
         cutoff = gamma_0 + 10*np.log2(M)
         df = pd.concat([df_1, df_2], axis=0, ignore_index=True)
         sinr = df.astype(float)
         indexes = (sinr <= cutoff) & ~np.isnan(sinr)
         df_sinr = pd.DataFrame(sinr[indexes])
         df_sinr.columns = ['sinr_{}'.format(M)]
-        
+
         if optimal:
             df_3 = pd.read_csv('figures M={} optimal/ue_1_power.txt'.format(M), sep=',', header=None, index_col=False).transpose().dropna()
             df_4 = pd.read_csv('figures M={} optimal/ue_2_power.txt'.format(M), sep=',', header=None, index_col=False).transpose().dropna()
         else:
             df_3 = pd.read_csv('figures M={}/ue_1_power.txt'.format(M), sep=',', header=None, index_col=False).transpose().dropna()
             df_4 = pd.read_csv('figures M={}/ue_2_power.txt'.format(M), sep=',', header=None, index_col=False).transpose().dropna()
-        
+
         df = pd.concat([df_3, df_4], axis=0, ignore_index=True)
         df = df.astype(float)
-        
+
         df_power = df.copy()
         df_power.columns = ['tx_power_{}'.format(M)]
-    
+
         df_final = pd.concat([df_final, df_sinr, df_power], axis=1)
-        
+
     return df_final
 
 ################################################################################################################################################################
+
+# used to compare two sets of data against a common X-axis.
 def plot_secondary(X,Y1, Y2, Y3, Y4, xlabel, y1label, y2label, y1max, y2max, filename='plot.pdf'):
     fig = plt.figure(figsize=(10.24,7.68))
-    plt.rc('text', usetex=True)
+    plt.rc('text', usetex=False)
     plt.rc('font', family='serif')
-    matplotlib.rcParams['text.usetex'] = True
+    matplotlib.rcParams['text.usetex'] = False
     matplotlib.rcParams['font.size'] = 20
-    matplotlib.rcParams['text.latex.preamble'] = [
-        r'\usepackage{amsmath}',
-        r'\usepackage{amssymb}']
-    
+    matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{amsmath} \usepackage{amssymb}'
+
     #plt.title(title)
     plt.xlabel(xlabel)
     plt.grid(True, axis='both', which='both')
-        
+
     ax = fig.gca()
 #    ax.xaxis.set_major_locator(MultipleLocator(1))
     # Format the ticklabel to be 2 raised to the power of `x`
  #   ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: int(2**x)))
-    
+
     ax.set_autoscaley_on(False)
     ax_sec = ax.twinx()
-    
+
     plot1_, = ax.plot(X, Y1, 'k^-')
     plot2_, = ax.plot(X, Y2, 'bo--')
     plot3_, = ax_sec.plot(X, Y3, 'r^-')
@@ -164,52 +156,51 @@ def plot_secondary(X,Y1, Y2, Y3, Y4, xlabel, y1label, y2label, y1max, y2max, fil
 
     ax.set_ylabel(y1label)
     ax_sec.set_ylabel(y2label)
-    
+
     ax.set_ylim(0, y1max)
     ax_sec.set_ylim(0, y2max)
-    
+
     plt.grid(True)
     plt.legend([plot1_, plot2_, plot3_, plot4_], ['TX Power JB-PCIC', 'TX Power Optimal', 'SINR JB-PCIC', 'SINR Optimal'], loc='lower right')
-    fig.tight_layout()
+    # fig.tight_layout()
     plt.savefig('figures/{}'.format(filename), format='pdf')
-    matplotlib2tikz.save('figures/{}.tikz'.format(filename))
-    
+    # tikzplotlib.save('figures/{}.tikz'.format(filename))
+
+# Creates a primary plot with two sets of Y data for comparision
 def plot_primary_two(X, Y1, Y2, xlabel, ylabel, filename='plot.pdf'):
     fig = plt.figure(figsize=(10.24,7.68))
-    plt.rc('text', usetex=True)
+    plt.rc('text', usetex=False)
     plt.rc('font', family='serif')
-    matplotlib.rcParams['text.usetex'] = True
+    matplotlib.rcParams['text.usetex'] = False
     matplotlib.rcParams['font.size'] = 20
-    matplotlib.rcParams['text.latex.preamble'] = [
-        r'\usepackage{amsmath}',
-        r'\usepackage{amssymb}']
-    
+    matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{amsmath} \usepackage{amssymb}'
+
     plt.xlabel(xlabel)
-    
+
     ax = fig.gca()
 #    ax.xaxis.set_major_locator(MultipleLocator(1))
     # Format the ticklabel to be 2 raised to the power of `x`
  #   ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos: int(2**x)))
-    
+
     ax.set_autoscaley_on(False)
-    
+
     plot1_, = ax.plot(X, Y1, 'k^-')
     plot2_, = ax.plot(X, Y2, 'ro--')
 
     ax.set_ylabel(ylabel)
     ax.set_ylim(min(min(Y1), min(Y2))*0.98, max(max(Y1), max(Y2))*1.02)
-    
+
     plt.grid(True)
     plt.legend([plot1_, plot2_], ['JB-PCIC', 'Optimal'], loc='best')
-    fig.tight_layout()
+    # fig.tight_layout()
     plt.savefig('figures/{}'.format(filename), format='pdf')
-    matplotlib2tikz.save('figures/{}.tikz'.format(filename))
-    
+    # tikzplotlib.save('figures/{}.tikz'.format(filename))
+
 ##############################
 df_final_ = compute_distributions()
 df_final = df_final_.values
 df_final = df_final.T
-sinr_4, tx_power_4, sinr_8, tx_power_8, sinr_16, tx_power_16, sinr_32, tx_power_32, sinr_64, tx_power_64 = df_final 
+sinr_4, tx_power_4, sinr_8, tx_power_8, sinr_16, tx_power_16, sinr_32, tx_power_32, sinr_64, tx_power_64 = df_final
 
 sinr_4= sinr_4[~np.isnan(sinr_4)]
 tx_power_4= tx_power_4[~np.isnan(tx_power_4)]
@@ -247,7 +238,7 @@ sinr_avg_64 = 10*np.log10(10 ** (np.nanpercentile(sinr_64, q)/10.))
 df_final_opt_ = compute_distributions(optimal=True)
 df_final_opt = df_final_opt_.values
 df_final_opt = df_final_opt.T
-sinr_4_optimal, tx_power_4_optimal, sinr_8_optimal, tx_power_8_optimal, sinr_16_optimal, tx_power_16_optimal, sinr_32_optimal, tx_power_32_optimal, sinr_64_optimal, tx_power_64_optimal = df_final_opt 
+sinr_4_optimal, tx_power_4_optimal, sinr_8_optimal, tx_power_8_optimal, sinr_16_optimal, tx_power_16_optimal, sinr_32_optimal, tx_power_32_optimal, sinr_64_optimal, tx_power_64_optimal = df_final_opt
 
 ##################################################################################################################
 # 2) Convergence vs Antenna Size
@@ -291,8 +282,8 @@ Y4 = [sinr_avg_4_optimal, sinr_avg_8_optimal, sinr_avg_16_optimal, sinr_avg_32_o
 # Normalize Y1 and Y3
 Y1 = np.array(Y1) / np.array(Y3)
 Y3 = np.array(Y3) / np.array(Y3)
-Y1 = [round(x, 1) for x in Y1] 
-Y3 = [round(x, 1) for x in Y3] 
+Y1 = [round(x, 1) for x in Y1]
+Y3 = [round(x, 1) for x in Y3]
 
 plot_secondary(X,Y1,Y3,Y2,Y4, r'$M$', r'Normalized Transmit Power', r'Achievable SINR [dB]', 1.2, 67, 'achievable_sinr_power.pdf')
 
