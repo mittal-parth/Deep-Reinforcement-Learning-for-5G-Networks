@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Sat Mar  2 19:02:40 2019
-
-@author: farismismar
-"""
 
 # Used from: https://keon.io/deep-q-learning/
 # https://github.com/keon/deep-q-learning/blob/master/dqn.py
@@ -21,7 +16,7 @@ import random
 import numpy as np
 from collections import deque
 from keras.models import Sequential
-from keras.callbacks import History 
+from keras.callbacks import History
 from keras.layers import Dense
 from keras.optimizers import Adam
 from keras import backend as K
@@ -32,7 +27,7 @@ class DQNLearningAgent:
                  discount_factor=0.995,
                  exploration_rate=1.0,
                  exploration_decay_rate=0.9995):
-                               
+
         self.memory = deque(maxlen=2000)
         self.gamma = discount_factor    # discount rate
         self.exploration_rate = exploration_rate / exploration_decay_rate # exploration rate
@@ -40,22 +35,22 @@ class DQNLearningAgent:
         self.exploration_rate_decay = exploration_decay_rate
         self.learning_rate = 0.01 # this is eta for SGD
 
-        self._state_size = 6 
+        self._state_size = 6
         self._action_size = 16 # 16 mmWave and 16 for voice.  check the actions in the environment
-                  
+
         # Add a few lines to caputre the seed for reproducibility.
         self.seed = seed
         random.seed(self.seed)
         np.random.seed(self.seed)
-        
+
         self.model = self._build_model()
-                
+
     def begin_episode(self, observation):
         # Reduce exploration over time.
         self.exploration_rate *= self.exploration_rate_decay
         if (self.exploration_rate < self.exploration_rate_min):
             self.exploration_rate = self.exploration_rate_min
-            
+
         # return an action at random
         action = random.randrange(self._action_size)
 
@@ -70,9 +65,9 @@ class DQNLearningAgent:
         model.add(Dense(self._action_size, activation='relu'))
         model.compile(loss='mse',
                       optimizer=Adam(lr=self.learning_rate))
-        
+
         return model
-    
+
     def _construct_training_set(self, replay):
         # Select states and next states from replay memory
         states = np.array([a[0] for a in replay])
@@ -86,7 +81,7 @@ class DQNLearningAgent:
         replay_size = len(replay)
         X = np.empty((replay_size, self._state_size))
         y = np.empty((replay_size, self._action_size))
-        
+
         # Construct training set
         for i in range(replay_size):
             state_r, action_r, reward_r, new_state_r, done_r = replay[i]
@@ -102,34 +97,34 @@ class DQNLearningAgent:
             y[i] = target
 
         return X, y
-        
+
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
         # Make sure we restrict memory size to specified limit
         if len(self.memory) > 2000:
             self.memory.pop(0)
-        
+
     def act(self, state):
         # Exploration/exploitation: choose a random action or select the best one.
         if np.random.uniform(0, 1) <= self.exploration_rate:
             return random.randrange(self._action_size)
-        
+
         state = np.reshape(state, [1, self._state_size])
         with tf.device('/gpu:0'):
             act_values = self.model.predict(state)
-            
+
         return np.argmax(act_values[0])  # returns action
-    
+
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
 
         X, y = self._construct_training_set(minibatch)
         with tf.device('/gpu:0'):
             loss = self.model.train_on_batch(X, y)
-        
+
         _q = np.mean(y)
         return loss, _q
-                
+
     def update_target_model(self):
         # copy weights from model to target_model
         self.target_model.set_weights(self.model.get_weights())
